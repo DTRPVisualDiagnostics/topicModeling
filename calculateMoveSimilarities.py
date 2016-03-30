@@ -1,12 +1,12 @@
 import logging, os, csv, re, pdb
 
-from collections import defaultdict
-
-from gensim import corpora, models, similarities
+from gensim import corpora, models, similarities, matutils
 
 from nltk.stem.porter import PorterStemmer
 
 from stop_words import get_stop_words
+
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 p_stemmer = PorterStemmer()
 
@@ -14,30 +14,41 @@ p_stemmer = PorterStemmer()
 en_stop = get_stop_words('en')
 en_stop += ["yeah","ok","like","mhm","err","think", "xxx", "you", "eh", "ehm", "huh", "umm", "uhh"]
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+lsi = models.LsiModel.load('./tmp/model.lsi')
+
+lda = models.LdaModel.load('./tmp/model.lda')
+
+dictionary = corpora.Dictionary.load('./tmp/DTRP.dict')
+
+corpus = corpora.MmCorpus('./tmp/DTRP.mm')
+
+tfidf = models.TfidfModel(corpus) # step 1 -- initialize a model
 
 #(path, transcript column #, delimiter, initial rows to skip)
 LIST_OF_TRANSCRIPTS_INFO = [('../../datasets/dschool-dataset/csv', 3, ',', 1), ('../../datasets/DTRS2015-dataset/tsv', 1, '\t', 0), ('../../datasets/DTRS2016-dataset/csv', 3, ',', 6)]
 
-def buildCorpus():
+def loadDocuments():
 	documents = []
 
 	for info in LIST_OF_TRANSCRIPTS_INFO:		
 		for transcriptPath in os.listdir(info[0]):
 			document = loadFileIntoList(info[0] + "/" + transcriptPath, info[1], info[2], info[3])
 			documents.append(document)
-
-	frequency = defaultdict(int)
-	for text in documents:
-	    for token in text:
-	        frequency[token] += 1
-
-	texts = [[token for token in text if frequency[token] > 1] for text in documents]
-
-	dictionary = corpora.Dictionary(texts)
-	dictionary.save('./tmp/DTRP.dict')
-	corpus = [dictionary.doc2bow(text) for text in texts]
-	corpora.MmCorpus.serialize('./tmp/DTRP.mm', corpus)
+	
+	for doc in documents:
+		last_sentence_lsi = []
+		last_sentence_lda = []
+		for sentence in doc:
+			sentence_bow = dictionary.doc2bow(sentence.split(" "))
+			print(sentence)
+			#print(lsi[tfidf[sentence_bow]])
+			#print(lda[sentence_bow])
+			sim_lsi = matutils.cossim(lsi[tfidf[sentence_bow]], last_sentence_lsi)
+			sim_lda = matutils.cossim(lda[sentence_bow], last_sentence_lda)
+			print(sim_lsi)
+			print(sim_lda)
+			last_sentence_lsi = lsi[tfidf[sentence_bow]]
+			last_sentence_lda = lda[sentence_bow]
 
 def loadFileIntoList(path, index, delimiter, skipLines):
 	doc = []
@@ -50,7 +61,6 @@ def loadFileIntoList(path, index, delimiter, skipLines):
 				cleaned_line = cleanLine(row[index])
 				if (cleaned_line != ""):
 					doc.append(cleaned_line.rstrip('\n'))
-	doc = " ".join(doc).split(" ")
 	return doc
 
 def cleanLine(line):
@@ -77,4 +87,4 @@ def cleanLine(line):
 	final_line = " ".join(final_tokens)
 	return final_line
 
-buildCorpus()
+loadDocuments()
