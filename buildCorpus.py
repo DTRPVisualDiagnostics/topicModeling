@@ -1,4 +1,6 @@
-import logging, os, csv, re
+import logging, os, csv, re, pdb
+
+from collections import defaultdict
 
 from gensim import corpora, models, similarities
 
@@ -17,6 +19,21 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 #(path, transcript column #, delimiter, initial rows to skip)
 LIST_OF_TRANSCRIPTS_INFO = [('../../datasets/dschool-dataset/csv', 3, ',', 1), ('../../datasets/DTRS2015-dataset/tsv', 1, '\t', 0), ('../../datasets/DTRS2016-dataset/csv', 3, ',', 6)]
 
+def buildCorpus():
+	documents = []
+
+	for info in LIST_OF_TRANSCRIPTS_INFO:		
+		for transcriptPath in os.listdir(info[0]):
+			document = loadFileIntoList(info[0] + "/" + transcriptPath, info[1], info[2], info[3])
+			documents.append(document)
+
+	frequency = defaultdict(int)
+	for text in documents:
+	    for token in text:
+	        frequency[token] += 1
+
+	texts = [[token for token in text if frequency[token] > 1] for text in documents]
+
 def loadFileIntoList(path, index, delimiter, skipLines):
 	doc = []
 	with open(path, 'rt') as csvfile:
@@ -27,7 +44,8 @@ def loadFileIntoList(path, index, delimiter, skipLines):
 			if len(row) >= index and row[index]:
 				cleaned_line = cleanLine(row[index])
 				if (cleaned_line != ""):
-					doc.append([x for x in cleaned_line.rstrip('\n').split(" ") if x != ""])
+					doc.append(cleaned_line.rstrip('\n'))
+	doc = " ".join(doc).split(" ")
 	return doc
 
 def cleanLine(line):
@@ -53,11 +71,4 @@ def cleanLine(line):
 	stemmed_line = " ".join(stemmed_tokens)
 	return stemmed_line
 
-documents = []
-
-for info in LIST_OF_TRANSCRIPTS_INFO:		
-	for transcriptPath in os.listdir(info[0]):
-		document = loadFileIntoList(info[0] + "/" + transcriptPath, info[1], info[2], info[3])
-		documents.append(document)
-
-print(documents)
+buildCorpus()
