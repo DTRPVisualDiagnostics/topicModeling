@@ -34,6 +34,11 @@ def buildCorpus():
 
 	texts = [[token for token in text if frequency[token] > 1] for text in documents]
 
+	dictionary = corpora.Dictionary(texts)
+	dictionary.save('/tmp/DTRP.dict')
+	corpus = [dictionary.doc2bow(text) for text in texts]
+	corpora.MmCorpus.serialize('/tmp/DTRP.mm', corpus)
+
 def loadFileIntoList(path, index, delimiter, skipLines):
 	doc = []
 	with open(path, 'rt') as csvfile:
